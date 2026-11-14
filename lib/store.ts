@@ -1,4 +1,4 @@
-import { DeviceId, Project, UIElement } from "./types";
+import { DeviceId, ELEMENT_DEFAULTS, ElementType, Project, UIElement } from "./types";
 
 const USER_KEY = "rbxui:user";
 const PROJECTS_KEY = "rbxui:projects";
@@ -31,30 +31,53 @@ export function logout() {
   localStorage.removeItem(USER_KEY);
 }
 
+/* ---------- Éléments ---------- */
+
+/** Complète un élément (ancien projet, parsing...) avec les valeurs par défaut */
+export function withDefaults(partial: Partial<UIElement> & { type: ElementType }): UIElement {
+  return {
+    ...ELEMENT_DEFAULTS,
+    id: uid(),
+    name: partial.type + Math.floor(Math.random() * 90 + 10),
+    ...partial,
+  } as UIElement;
+}
+
+export function makeElement(partial: Partial<UIElement> & Pick<UIElement, "type">): UIElement {
+  return withDefaults(partial);
+}
+
 /* ---------- Projets (localStorage pour l'instant) ---------- */
 
 export function listProjects(): Project[] {
   try {
     const raw = localStorage.getItem(PROJECTS_KEY);
     const list = raw ? (JSON.parse(raw) as Project[]) : [];
-    return list.sort((a, b) => b.updatedAt - a.updatedAt);
+    return list
+      .map((p) => ({ ...p, elements: (p.elements ?? []).map((e) => withDefaults(e)) }))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
   } catch {
     return [];
   }
 }
 
-function writeAll(list: Project[]) {
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(list));
+function writeAll(list: Project[]): boolean {
+  try {
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(list));
+    return true;
+  } catch {
+    return false; // stockage plein (images trop lourdes, par exemple)
+  }
 }
 
 export function getProject(id: string): Project | null {
   return listProjects().find((p) => p.id === id) ?? null;
 }
 
-export function saveProject(project: Project) {
+export function saveProject(project: Project): boolean {
   const list = listProjects().filter((p) => p.id !== project.id);
   list.push({ ...project, updatedAt: Date.now() });
-  writeAll(list);
+  return writeAll(list);
 }
 
 export function deleteProject(id: string) {
@@ -62,23 +85,6 @@ export function deleteProject(id: string) {
 }
 
 /* ---------- Modèles de départ ---------- */
-
-export function makeElement(partial: Partial<UIElement> & Pick<UIElement, "type">): UIElement {
-  const base: UIElement = {
-    id: uid(),
-    type: partial.type,
-    name: partial.type + Math.floor(Math.random() * 90 + 10),
-    x: 0.35,
-    y: 0.35,
-    w: 0.3,
-    h: 0.3,
-    color: "#2d2d3a",
-    text: "",
-    textColor: "#ffffff",
-    radius: 0,
-  };
-  return { ...base, ...partial };
-}
 
 export type TemplateId = "blank" | "menu" | "inventory" | "hud" | "shop";
 
@@ -94,9 +100,9 @@ function templateElements(id: TemplateId): UIElement[] {
   switch (id) {
     case "menu":
       return [
-        makeElement({ type: "Frame", name: "Fond", x: 0.3, y: 0.15, w: 0.4, h: 0.7, color: "#1f1f2e", radius: 16 }),
-        makeElement({ type: "TextLabel", name: "Titre", x: 0.33, y: 0.2, w: 0.34, h: 0.12, color: "#1f1f2e", text: "MON JEU", radius: 0 }),
-        makeElement({ type: "TextButton", name: "Jouer", x: 0.35, y: 0.4, w: 0.3, h: 0.1, color: "#7d2ae8", text: "Jouer", radius: 12 }),
+        makeElement({ type: "Frame", name: "Fond", x: 0.3, y: 0.15, w: 0.4, h: 0.7, color: "#1f1f2e", radius: 16, strokeThickness: 2, strokeColor: "#7d2ae8" }),
+        makeElement({ type: "TextLabel", name: "Titre", x: 0.33, y: 0.2, w: 0.34, h: 0.12, color: "#1f1f2e", transparency: 1, text: "MON JEU" }),
+        makeElement({ type: "TextButton", name: "Jouer", x: 0.35, y: 0.4, w: 0.3, h: 0.1, color: "#7d2ae8", gradient: true, gradientColor: "#00c4cc", text: "Jouer", radius: 12 }),
         makeElement({ type: "TextButton", name: "Options", x: 0.35, y: 0.54, w: 0.3, h: 0.1, color: "#3b3b52", text: "Options", radius: 12 }),
         makeElement({ type: "TextButton", name: "Quitter", x: 0.35, y: 0.68, w: 0.3, h: 0.1, color: "#3b3b52", text: "Quitter", radius: 12 }),
       ];
@@ -118,20 +124,20 @@ function templateElements(id: TemplateId): UIElement[] {
           );
       return [
         makeElement({ type: "Frame", name: "Panneau", x: 0.27, y: 0.12, w: 0.46, h: 0.76, color: "#1f1f2e", radius: 16 }),
-        makeElement({ type: "TextLabel", name: "Titre", x: 0.29, y: 0.15, w: 0.2, h: 0.09, color: "#1f1f2e", text: "Inventaire" }),
+        makeElement({ type: "TextLabel", name: "Titre", x: 0.29, y: 0.15, w: 0.2, h: 0.09, color: "#1f1f2e", transparency: 1, text: "Inventaire" }),
         ...slots,
       ];
     }
     case "hud":
       return [
         makeElement({ type: "Frame", name: "BarreVieFond", x: 0.03, y: 0.04, w: 0.25, h: 0.05, color: "#3b3b52", radius: 10 }),
-        makeElement({ type: "Frame", name: "BarreVie", x: 0.03, y: 0.04, w: 0.18, h: 0.05, color: "#ef4444", radius: 10 }),
-        makeElement({ type: "TextLabel", name: "Argent", x: 0.78, y: 0.04, w: 0.19, h: 0.07, color: "#facc15", text: "💰 1250", radius: 10 }),
+        makeElement({ type: "Frame", name: "BarreVie", x: 0.03, y: 0.04, w: 0.18, h: 0.05, color: "#ef4444", gradient: true, gradientColor: "#f97316", radius: 10 }),
+        makeElement({ type: "TextLabel", name: "Argent", x: 0.78, y: 0.04, w: 0.19, h: 0.07, color: "#facc15", textColor: "#1f1f2e", text: "1250", radius: 10 }),
       ];
     case "shop":
       return [
         makeElement({ type: "Frame", name: "Fond", x: 0.2, y: 0.12, w: 0.6, h: 0.76, color: "#1f1f2e", radius: 16 }),
-        makeElement({ type: "TextLabel", name: "Titre", x: 0.23, y: 0.15, w: 0.2, h: 0.09, color: "#1f1f2e", text: "Boutique" }),
+        makeElement({ type: "TextLabel", name: "Titre", x: 0.23, y: 0.15, w: 0.2, h: 0.09, color: "#1f1f2e", transparency: 1, text: "Boutique" }),
         makeElement({ type: "ImageLabel", name: "Item1", x: 0.24, y: 0.3, w: 0.16, h: 0.3, color: "#3b3b52", radius: 12 }),
         makeElement({ type: "ImageLabel", name: "Item2", x: 0.42, y: 0.3, w: 0.16, h: 0.3, color: "#3b3b52", radius: 12 }),
         makeElement({ type: "ImageLabel", name: "Item3", x: 0.6, y: 0.3, w: 0.16, h: 0.3, color: "#3b3b52", radius: 12 }),
