@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # RbxUI Studio
 
 Éditeur visuel d'interfaces Roblox (style Canva) : tu places tes éléments sur l'écran au milieu, le code Luau se génère en direct à droite, la boîte à outils est à gauche.
