@@ -1,8 +1,8 @@
-import { DEVICES, IMAGE_TYPES, Project } from "@/lib/types";
+import { IMAGE_TYPES, Project, deviceRatio } from "@/lib/types";
 import { OBJECT_FIT, elementBackground } from "@/lib/render";
 
 export default function MiniPreview({ project }: { project: Project }) {
-  const ratio = DEVICES[project.device].ratio;
+  const ratio = deviceRatio(project);
   return (
     <div className="mini-wrap">
       <div className="mini" style={{ aspectRatio: String(ratio) }}>
