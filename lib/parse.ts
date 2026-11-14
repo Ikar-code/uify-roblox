@@ -188,6 +188,8 @@ function build(code: string, prev: UIElement[]): { elements: UIElement[]; warnin
   };
 
   const parsed: UIElement[] = [];
+  const vars: string[] = []; // nom de variable de chaque élément de `parsed`
+  const parentVars = new Map<string, string>(); // variable enfant → variable parent
   const byVar = new Map<string, UIElement>();
 
   for (const varName of order) {
@@ -201,10 +203,7 @@ function build(code: string, prev: UIElement[]): { elements: UIElement[]; warnin
 
     const parentRaw = inst.props.get("Parent")?.raw;
     const parentInst = parentRaw ? insts.get(parentRaw) : undefined;
-    if (parentInst && ELEMENT_CLASSES.includes(parentInst.cls)) {
-      warnings.push(`« ${varName} » est dans « ${parentRaw} » : l'imbrication n'est pas encore gérée, élément ignoré.`);
-      continue;
-    }
+    if (parentRaw && parentInst && ELEMENT_CLASSES.includes(parentInst.cls)) parentVars.set(varName, parentRaw);
 
     const el: UIElement = { ...base, type: inst.cls as ElementType, name: varName };
 
@@ -235,6 +234,9 @@ function build(code: string, prev: UIElement[]): { elements: UIElement[]; warnin
           break;
         case "Rotation":
           el.rotation = toNum(raw, line, prop);
+          break;
+        case "Visible":
+          el.visible = toBool(raw, line, prop);
           break;
         case "Text":
           el.text = toStr(raw, line, prop);
@@ -270,6 +272,7 @@ function build(code: string, prev: UIElement[]): { elements: UIElement[]; warnin
     }
 
     parsed.push(el);
+    vars.push(varName);
     byVar.set(varName, el);
   }
 
@@ -286,7 +289,15 @@ function build(code: string, prev: UIElement[]): { elements: UIElement[]; warnin
       if (p) {
         const a = args(p.raw, "UDim.new");
         if (!a || a.length !== 2) throw new ParseError(p.line, "UDim.new(scale, offset) attendu pour CornerRadius");
-        target.radius = Math.max(0, toNum(a[1], p.line, "CornerRadius"));
+        const sc = toNum(a[0], p.line, "CornerRadius");
+        const off = toNum(a[1], p.line, "CornerRadius");
+        if (sc > 0) {
+          target.cornerScale = Math.min(0.5, sc);
+          target.radius = 0;
+        } else {
+          target.cornerScale = 0;
+          target.radius = Math.max(0, off);
+        }
       } else {
         target.radius = 8;
       }
@@ -329,13 +340,37 @@ function build(code: string, prev: UIElement[]): { elements: UIElement[]; warnin
     }
   });
 
-  const elements = parsed.map((el, i) => {
+  const withIds = parsed.map((el, i) => {
     const p = match[i] >= 0 ? prev[match[i]] : null;
     return {
       ...el,
       id: p ? p.id : uid(),
       image: p && IMAGE_TYPES.includes(el.type) ? p.image : "",
+      locked: p ? p.locked : false,
     };
+  });
+
+  // Relier les parents (variable → id)
+  const idByVar = new Map<string, string>(vars.map((v, i) => [v, withIds[i].id]));
+  const elements: UIElement[] = withIds.map((el, i) => {
+    const pv = parentVars.get(vars[i]);
+    return { ...el, parentId: pv ? idByVar.get(pv) ?? null : null };
+  });
+
+  // Anti-boucle : un élément ne peut pas être son propre ancêtre
+  elements.forEach((el, i) => {
+    const seen = new Set<string>();
+    let cur: UIElement | undefined = el;
+    while (cur && cur.parentId) {
+      if (seen.has(cur.id)) {
+        elements[i] = { ...el, parentId: null };
+        warnings.push(`Boucle de parents détectée sur « ${el.name} », parent ignoré.`);
+        break;
+      }
+      seen.add(cur.id);
+      const pid: string = cur.parentId;
+      cur = elements.find((e) => e.id === pid);
+    }
   });
 
   return { elements, warnings };
