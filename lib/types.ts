@@ -5,6 +5,9 @@ export type UIElement = {
   id: string;
   type: ElementType;
   name: string;
+  parentId: string | null; // null = directement sur l'écran, sinon dans un autre élément (groupe)
+  visible: boolean; // propriété Visible
+  locked: boolean; // verrouillé dans l'éditeur seulement (pas dans le code)
   // Position et taille en Scale (0 à 1, relatif à l'écran)
   x: number;
   y: number;
@@ -21,6 +24,7 @@ export type UIElement = {
   textSize: number;
   // Coins / bordure / dégradé
   radius: number; // UICorner en pixels Roblox (0 = aucun)
+  cornerScale: number; // UICorner proportionnel (0 = non utilisé, 0.5 = cercle / capsule)
   strokeThickness: number; // UIStroke (0 = aucun)
   strokeColor: string;
   gradient: boolean; // UIGradient
@@ -88,6 +92,10 @@ export const ELEMENT_DEFAULTS: Omit<UIElement, "id" | "type" | "name"> = {
   y: 0.35,
   w: 0.3,
   h: 0.3,
+  parentId: null,
+  visible: true,
+  locked: false,
+  cornerScale: 0,
   rotation: 0,
   color: "#2d2d3a",
   transparency: 0,
