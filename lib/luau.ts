@@ -1,4 +1,5 @@
 import { IMAGE_TYPES, TEXT_TYPES, UIElement } from "./types";
+import { hasParent, orderedTree } from "./tree";
 
 export function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
