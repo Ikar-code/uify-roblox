@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # RbxUI Studio
 
 Éditeur visuel d'interfaces Roblox (style Canva) : tu places tes éléments sur l'écran au milieu, le code Luau se génère en direct à droite, la boîte à outils est à gauche.
@@ -28,3 +29,6 @@ Ou déploie directement sur Vercel (framework détecté automatiquement : Next.j
 - Bascule Scale / Offset par élément
 - Export `.rbxmx`
 - Plus d'éléments (ScrollingFrame, TextBox, UIStroke, UIGradient...)
+=======
+# uify-roblox
+>>>>>>> 4099a123f5e9853464c49cc0581a897e6a75f8a9
