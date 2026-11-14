@@ -1,10 +1,18 @@
-import { UIElement } from "./types";
+import { IMAGE_TYPES, TEXT_TYPES, UIElement } from "./types";
 
-function rgb(hex: string): string {
+export function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
-  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.padEnd(6, "0");
+  const n = parseInt(full.slice(0, 6), 16) || 0;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
+
+export function rgbToHex(r: number, g: number, b: number): string {
+  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+
+const col = (hex: string) => `Color3.fromRGB(${hexToRgb(hex).join(", ")})`;
 
 function num(n: number): string {
   return String(Math.round(n * 1000) / 1000);
@@ -37,17 +45,23 @@ export function toLuau(elements: UIElement[], guiName = "MonUI"): string {
     lines.push(`${v}.Name = "${esc(el.name)}"`);
     lines.push(`${v}.Position = UDim2.new(${num(el.x)}, 0, ${num(el.y)}, 0)`);
     lines.push(`${v}.Size = UDim2.new(${num(el.w)}, 0, ${num(el.h)}, 0)`);
-    lines.push(`${v}.BackgroundColor3 = Color3.fromRGB(${rgb(el.color)})`);
+    // Avec un UIGradient, Roblox multiplie la couleur du fond : on part du blanc
+    lines.push(`${v}.BackgroundColor3 = ${el.gradient ? "Color3.fromRGB(255, 255, 255)" : col(el.color)}`);
+    if (el.transparency > 0) lines.push(`${v}.BackgroundTransparency = ${num(el.transparency)}`);
     lines.push(`${v}.BorderSizePixel = 0`);
+    if (el.rotation !== 0) lines.push(`${v}.Rotation = ${num(el.rotation)}`);
 
-    if (el.type === "TextLabel" || el.type === "TextButton") {
+    if (TEXT_TYPES.includes(el.type)) {
       lines.push(`${v}.Text = "${esc(el.text)}"`);
-      lines.push(`${v}.TextColor3 = Color3.fromRGB(${rgb(el.textColor)})`);
-      lines.push(`${v}.TextScaled = true`);
-      lines.push(`${v}.Font = Enum.Font.GothamBold`);
+      lines.push(`${v}.TextColor3 = ${col(el.textColor)}`);
+      if (el.textScaled) lines.push(`${v}.TextScaled = true`);
+      else lines.push(`${v}.TextSize = ${Math.round(el.textSize)}`);
+      lines.push(`${v}.Font = Enum.Font.${el.font}`);
     }
-    if (el.type === "ImageLabel") {
-      lines.push(`${v}.Image = "" -- colle ici ton rbxassetid://...`);
+    if (IMAGE_TYPES.includes(el.type)) {
+      if (el.assetId) lines.push(`${v}.Image = "rbxassetid://${el.assetId}"`);
+      else lines.push(`${v}.Image = "" -- colle ici ton rbxassetid://...`);
+      if (el.scaleType !== "Stretch") lines.push(`${v}.ScaleType = Enum.ScaleType.${el.scaleType}`);
     }
     lines.push(`${v}.Parent = ScreenGui`);
 
@@ -56,6 +70,20 @@ export function toLuau(elements: UIElement[], guiName = "MonUI"): string {
       lines.push(`local ${v}Corner = Instance.new("UICorner")`);
       lines.push(`${v}Corner.CornerRadius = UDim.new(0, ${Math.round(el.radius)})`);
       lines.push(`${v}Corner.Parent = ${v}`);
+    }
+    if (el.strokeThickness > 0) {
+      lines.push("");
+      lines.push(`local ${v}Stroke = Instance.new("UIStroke")`);
+      lines.push(`${v}Stroke.Color = ${col(el.strokeColor)}`);
+      lines.push(`${v}Stroke.Thickness = ${num(el.strokeThickness)}`);
+      lines.push(`${v}Stroke.Parent = ${v}`);
+    }
+    if (el.gradient) {
+      lines.push("");
+      lines.push(`local ${v}Gradient = Instance.new("UIGradient")`);
+      lines.push(`${v}Gradient.Color = ColorSequence.new(${col(el.color)}, ${col(el.gradientColor)})`);
+      lines.push(`${v}Gradient.Rotation = ${num(el.gradientRotation)}`);
+      lines.push(`${v}Gradient.Parent = ${v}`);
     }
   });
 
