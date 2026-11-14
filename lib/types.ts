@@ -34,10 +34,13 @@ export type UIElement = {
 
 export type DeviceId = "pc" | "tablet" | "mobile";
 
+export type Orientation = "landscape" | "portrait";
+
 export type Project = {
   id: string;
   name: string;
   device: DeviceId;
+  orientation?: Orientation; // paysage par défaut (Roblox mobile est en paysage)
   elements: UIElement[];
   updatedAt: number;
 };
@@ -45,8 +48,14 @@ export type Project = {
 export const DEVICES: Record<DeviceId, { label: string; ratio: number }> = {
   pc: { label: "PC 16:9", ratio: 16 / 9 },
   tablet: { label: "Tablette 4:3", ratio: 4 / 3 },
-  mobile: { label: "Mobile 9:16", ratio: 9 / 16 },
+  mobile: { label: "Mobile 16:9", ratio: 16 / 9 },
 };
+
+/** Ratio largeur/hauteur de l'écran simulé, en tenant compte de la rotation */
+export function deviceRatio(p: Pick<Project, "device" | "orientation">): number {
+  const base = DEVICES[p.device].ratio;
+  return p.orientation === "portrait" ? 1 / base : base;
+}
 
 export const TEXT_TYPES: ElementType[] = ["TextLabel", "TextButton"];
 export const IMAGE_TYPES: ElementType[] = ["ImageLabel", "ImageButton"];
