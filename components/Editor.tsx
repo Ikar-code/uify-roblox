@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DEVICES, DeviceId, ElementType, FONTS, IMAGE_TYPES, Project, TEXT_TYPES, UIElement } from "@/lib/types";
+import { DEVICES, DeviceId, ElementType, FONTS, IMAGE_TYPES, Project, TEXT_TYPES, UIElement, deviceRatio } from "@/lib/types";
 import { getProject, getUser, makeElement, saveProject } from "@/lib/store";
 import { toLuau } from "@/lib/luau";
 import { parseLuau } from "@/lib/parse";
@@ -292,7 +292,7 @@ export default function Editor({ id }: { id: string }) {
     try {
       const { url, aspect } = await fileToImage(f);
       const rect = canvas.getBoundingClientRect();
-      const ratio = DEVICES[project.device].ratio;
+      const ratio = deviceRatio(project);
       const w = 0.25;
       const h = clamp((w * ratio) / aspect, 0.03, 0.9);
       const x = clamp((e.clientX - rect.left) / rect.width - w / 2, 0, 1 - w);
@@ -373,7 +373,8 @@ export default function Editor({ id }: { id: string }) {
   if (!project) return <div className="splash">Chargement…</div>;
 
   const sel = project.elements.find((e) => e.id === selected) ?? null;
-  const ratio = DEVICES[project.device].ratio;
+  const ratio = deviceRatio(project);
+  const portrait = project.orientation === "portrait";
 
   /* ----- Contenu des panneaux ----- */
 
@@ -630,6 +631,13 @@ export default function Editor({ id }: { id: string }) {
               </option>
             ))}
           </select>
+          <button
+            className="btn btn-outline btn-sm"
+            title={portrait ? "Passer en paysage" : "Tourner l'écran en portrait"}
+            onClick={() => setProject({ ...project, orientation: portrait ? "landscape" : "portrait" })}
+          >
+            ⟳ {portrait ? "Portrait" : "Paysage"}
+          </button>
           {saveOk ? <span className="saved">✓ Enregistré</span> : <span className="saved bad">⚠ Stockage plein (image trop lourde ?)</span>}
         </div>
       </header>
