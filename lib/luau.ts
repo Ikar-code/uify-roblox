@@ -1,4 +1,5 @@
 import { IMAGE_TYPES, TEXT_TYPES, UIElement } from "./types";
+import { hasParent, orderedTree } from "./tree";
 
 export function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -33,12 +34,20 @@ export function toLuau(elements: UIElement[], guiName = "MonUI"): string {
   lines.push(`ScreenGui.Name = "${esc(guiName)}"`);
   lines.push(`ScreenGui.ResetOnSpawn = false`);
 
-  const used = new Set<string>();
-
-  elements.forEach((el, i) => {
+  // Parents avant enfants, dans l'ordre des couches
+  const ordered = orderedTree(elements);
+  const names = new Map<string, string>();
+  const used = new Set<string>(["ScreenGui"]);
+  ordered.forEach((el, i) => {
     let v = varName(el.name, i);
-    while (used.has(v) || v === "ScreenGui") v += "_";
+    while (used.has(v)) v += "_";
     used.add(v);
+    names.set(el.id, v);
+  });
+
+  ordered.forEach((el) => {
+    const v = names.get(el.id)!;
+    const parentVar = hasParent(elements, el) ? names.get(el.parentId!) ?? "ScreenGui" : "ScreenGui";
 
     lines.push("");
     lines.push(`local ${v} = Instance.new("${el.type}")`);
@@ -49,6 +58,7 @@ export function toLuau(elements: UIElement[], guiName = "MonUI"): string {
     lines.push(`${v}.BackgroundColor3 = ${el.gradient ? "Color3.fromRGB(255, 255, 255)" : col(el.color)}`);
     if (el.transparency > 0) lines.push(`${v}.BackgroundTransparency = ${num(el.transparency)}`);
     lines.push(`${v}.BorderSizePixel = 0`);
+    if (!el.visible) lines.push(`${v}.Visible = false`);
     if (el.rotation !== 0) lines.push(`${v}.Rotation = ${num(el.rotation)}`);
 
     if (TEXT_TYPES.includes(el.type)) {
@@ -63,12 +73,13 @@ export function toLuau(elements: UIElement[], guiName = "MonUI"): string {
       else lines.push(`${v}.Image = "" -- colle ici ton rbxassetid://...`);
       if (el.scaleType !== "Stretch") lines.push(`${v}.ScaleType = Enum.ScaleType.${el.scaleType}`);
     }
-    lines.push(`${v}.Parent = ScreenGui`);
+    lines.push(`${v}.Parent = ${parentVar}`);
 
-    if (el.radius > 0) {
+    if (el.cornerScale > 0 || el.radius > 0) {
       lines.push("");
       lines.push(`local ${v}Corner = Instance.new("UICorner")`);
-      lines.push(`${v}Corner.CornerRadius = UDim.new(0, ${Math.round(el.radius)})`);
+      if (el.cornerScale > 0) lines.push(`${v}Corner.CornerRadius = UDim.new(${num(el.cornerScale)}, 0)`);
+      else lines.push(`${v}Corner.CornerRadius = UDim.new(0, ${Math.round(el.radius)})`);
       lines.push(`${v}Corner.Parent = ${v}`);
     }
     if (el.strokeThickness > 0) {
